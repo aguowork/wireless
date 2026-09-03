@@ -39,11 +39,17 @@ OpenWrt 无线中继管理系统 - 基于 Vue3 + LuCI RPC
 ### 方法一：一键安装（推荐）
 
 ```bash
-# 克隆仓库并安装
-git clone https://gitee.com/okuni/wireless.git /tmp/wx-install && sh /tmp/wx-install/scripts/install.sh && rm -rf /tmp/wx-install
+# 下载最新代码并安装（不需要 git）
+wget -O /tmp/wx.tar.gz https://gitee.com/okuni/wireless/repository/archive/main.tar.gz &&
+mkdir -p /tmp/wx-install && tar -xzf /tmp/wx.tar.gz -C /tmp/wx-install &&
+sh /tmp/wx-install/*/scripts/install.sh &&
+rm -rf /tmp/wx-install /tmp/wx.tar.gz
 ```
 
 > 💡 **说明**：安装脚本会自动处理 Windows 换行符、设置文件权限、重启服务，无需任何手动配置。
+>
+> 没有 `wget` 的固件可换成 `uclient-fetch -O /tmp/wx.tar.gz <地址>` 或 `curl -fsSL -o /tmp/wx.tar.gz <地址>`，其余步骤不变。
+> 归档解压后会多一层 `wireless-main/` 目录，所以命令里用 `*/scripts/install.sh` 通配，不必关心目录名。
 
 ### 方法二：手动安装
 
@@ -51,16 +57,18 @@ git clone https://gitee.com/okuni/wireless.git /tmp/wx-install && sh /tmp/wx-ins
 <summary>点击展开手动安装步骤</summary>
 
 ```bash
-# 1. 安装 git（如果未安装）
-opkg update && opkg install git git-http
+# 1. 下载并解包（不需要 git）
+wget -O /tmp/wx.tar.gz https://gitee.com/okuni/wireless/repository/archive/main.tar.gz
+mkdir -p /tmp/wx-install
+tar -xzf /tmp/wx.tar.gz -C /tmp/wx-install
 
-# 2. 克隆仓库
-git clone https://gitee.com/okuni/wireless.git /tmp/wx-install
-cd /tmp/wx-install
+# 2. 进入解包后的目录（目录名形如 wireless-main）
+cd /tmp/wx-install/*/
 
 # 3. 复制文件
 mkdir -p /www/wx /www/cgi-bin /usr/libexec/rpcd /usr/share/rpcd/acl.d /etc/wx
 cp -r wx/* /www/wx/
+cp wx/.ver /www/wx/
 cp -r cgi-bin/* /www/cgi-bin/
 cp rpcd/wx-wireless /usr/libexec/rpcd/
 cp acl.d/* /usr/share/rpcd/acl.d/
@@ -73,6 +81,9 @@ sed -i 's/\r$//' /www/cgi-bin/*.sh /usr/libexec/rpcd/wx-wireless
 
 # 5. 重启服务
 /etc/init.d/rpcd restart && /etc/init.d/uhttpd restart
+
+# 6. 清理
+cd / && rm -rf /tmp/wx-install /tmp/wx.tar.gz
 ```
 
 </details>
@@ -105,6 +116,8 @@ http://<路由器IP>/wx/
 - OpenWrt 21.02 或更高版本
 - 已安装 `uhttpd`（通常已预装）
 - 已安装 `rpcd`（通常已预装）
+- 下载工具任一即可：`curl` / `wget` / `uclient-fetch`（OpenWrt 至少自带一个）
+- **不需要 git**：安装和 OTA 更新都改用 HTTP 下载 tar.gz 归档
 
 ## OTA 更新
 
@@ -115,9 +128,17 @@ http://<路由器IP>/wx/
 3. 点击「检查更新」
 4. 如有新版本，点击「立即更新」
 
+实现方式（`cgi-bin/wx-auth.sh`）：
+
+- 版本列表取自 Gitee OpenAPI：`https://gitee.com/api/v5/repos/okuni/wireless/tags`
+- 更新包下载地址：`https://gitee.com/okuni/wireless/repository/archive/<tag>.tar.gz`
+- 解包后调用包内的 `scripts/install.sh` 完成覆盖安装（异步执行，因为该脚本会重启 uhttpd）
+- 取不到版本列表时返回错误提示，不会误报「已是最新版本」
+
 ## 版本历史
 
-版本号存储在 `/www/wx/.ver` 文件中。
+版本号存储在 `/www/wx/.ver` 文件中，由发布脚本 `scripts/build-vue.ps1` 写入（形如 `V3.0`）。
+与 Gitee tag（形如 `v3.0`）比较时会忽略 `v`/`V` 前缀和大小写，两种写法都能正确判断。
 
 ## 许可证
 

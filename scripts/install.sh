@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # 自动修复 Windows 换行符问题（如果从 Windows 上传）
-if grep -q $'\r' "$0" 2>/dev/null; then
+if grep -q "$(printf '\r')" "$0" 2>/dev/null; then
     sed -i 's/\r$//' "$0"
     exec sh "$0" "$@"
 fi
@@ -46,18 +46,6 @@ write_log() {
 log_info() { printf "${GREEN}[INFO]${NC} %s\n" "$1"; write_log "$1"; }
 log_warn() { printf "${YELLOW}[WARN]${NC} %s\n" "$1"; write_log "[WARN] $1"; }
 log_error() { printf "${RED}[ERROR]${NC} %s\n" "$1"; write_log "[ERROR] $1"; }
-
-# 检测并安装 git（用于 OTA 更新）
-install_git_if_needed() {
-    if ! command -v git >/dev/null 2>&1; then
-        log_info "检测到 git 未安装，正在安装..."
-        if opkg update >/dev/null 2>&1 && opkg install git git-http >/dev/null 2>&1; then
-            log_info "  ✓ git 已安装"
-        else
-            log_warn "  git 安装失败，OTA 更新功能可能不可用"
-        fi
-    fi
-}
 
 # 获取脚本所在目录的父目录（openwrt目录）
 SCRIPT_DIR=$(dirname "$(dirname "$0")")
@@ -148,10 +136,7 @@ if [ -f "$SCRIPT_DIR/scripts/uninstall.sh" ]; then
     log_info "  → /etc/wx/uninstall.sh"
 fi
 
-# 7. 安装 git（确保 OTA 更新可用）
-install_git_if_needed
-
-# 8. 重启相关服务
+# 7. 重启相关服务
 log_info "重启服务..."
 if /etc/init.d/rpcd restart 2>/dev/null; then
     log_info "  ✓ rpcd 已重启"
